@@ -19,10 +19,60 @@ library(lubridate)
 library(gt)
 
 ## 1.2 Setup file path for outputs ----
-plot.file.path = '03 Outputs'
+# Argument parsing and usage help
+print_usage <- function() {
+  cat("\nNSSK.R - North Shore Streamkeepers Summary Chloride Analysis\n")
+  cat("Usage: Rscript NSSK.R <input_csv_file> [parent_output_dir]\n")
+  cat("\nArguments:\n")
+  cat("  input_csv_file      Path to the DFO CoSMo CSV data file containing water quality data.\n")
+  cat("  parent_output_dir   Optional: directory where output directories and files will be written.\n")
+  cat("                      If not provided, a timestamped directory will be created in the current working directory.\n")
+  cat("\nOptions:\n")
+  cat("  --help, -h          Show this help message and exit.\n")
+  cat("\n")
+}
+args <- commandArgs(trailingOnly = TRUE)
+# Check for help flag
+if (any(args %in% c("-h", "--help"))) {
+  print_usage()
+  quit(status = 0)
+}
+if (length(args) < 1 || !nzchar(args[1])) {
+    print_usage()
+    quit(status = 1)
+}
+input_file <- args[1]
+parent_out_dir <- if (length(args) >= 2 && nzchar(args[2])) {
+    args[2]
+} else {
+    file.path(getwd(), paste0("analysis-", format(Sys.time(), "%Y%m%d-%H%M%S")))
+}
+if (!file.exists(input_file)) {
+    stop("Input CSV file not found: ", input_file)
+}
+# Create parent and subdirectories
+if (!dir.create(parent_out_dir, recursive = TRUE, showWarnings = FALSE) && !dir.exists(parent_out_dir)) {
+    stop("Failed to create parent output directory: ", parent_out_dir)
+}
+data_dir <- file.path(parent_out_dir, "02 Data")
+plot_dir <- file.path(parent_out_dir, "03 Outputs")
+for (d in c(data_dir, plot_dir)) {
+    if (!dir.create(d, recursive = TRUE, showWarnings = FALSE) && !dir.exists(d)) {
+        stop("Failed to create subdirectory: ", d)
+    }
+}
+plot.file.path <- plot_dir
+# Full path for the filtered Wagg dataset (monitoring locations WAGG01 and WAGG03, with non‑missing specific conductance).
+wagg_path <- file.path(data_dir, "Wagg.csv")
+# Full path for short‑term acute pulse CSV
+stapulses_path <- file.path(data_dir, "WaggSTAPulses.csv")
+# Full path for long‑term chronic pulse CSV
+ltcpulses_path <- file.path(data_dir, "WaggLTCPulses.csv")
+# Full path for combined bootstrap results CSV
+combined_path <- file.path(parent_out_dir, "combined_results.csv")
 
 # 2 LOADING DATA --------------------------------------------------------------
-Data <- read.csv("02 Data/May_30_2025_Download.csv") %>%
+Data <- read.csv(input_file) %>%
   select(MonitoringLocationID, MonitoringLocationName,MonitoringLocationLatitude,MonitoringLocationLongitude,
          MonitoringLocationType,ActivityType,ActivityMediaName,ActivityStartDate,ActivityStartTime,
          SampleCollectionEquipmentName,CharacteristicName,ResultValue) 
@@ -125,7 +175,7 @@ Wagg <- DataWide %>%
   subset(!is.na(`Specific conductance`))
 #254,548 obs.
 
-write.csv(Wagg,"02 Data/Wagg.csv" , row.names = FALSE)
+write.csv(Wagg, wagg_path, row.names = FALSE)
 
 # 4 FINDING PULSES ------------------------------------------------------------
 ## 4.1 Short-term acute pulses (exceed the acute water quality guideline) -----
@@ -173,7 +223,7 @@ STAPulses <- Wagg %>%
     .groups = "drop"
   ) %>%
   filter(Duration > 0) #Remove pulses with zero duration
-write.csv(STAPulses,"02 Data/WaggSTAPulses.csv" , row.names = FALSE)
+write.csv(STAPulses, stapulses_path, row.names = FALSE)
 
 ## 4.2 Long-term acute pulses (exceed the chronic water quality guideline) ----
 LTCPulses <- Wagg %>%
@@ -220,7 +270,7 @@ LTCPulses <- Wagg %>%
     .groups = "drop"
   ) %>%
   filter(Duration > 0) #Remove pulses with zero duration
-write.csv(LTCPulses,"02 Data/WaggLTCPulses.csv" , row.names = FALSE)
+write.csv(LTCPulses, ltcpulses_path, row.names = FALSE)
 
 # just the pulses which exceed the long-term chronic guideline, but not the acute
 LTCPulses_unique <- anti_join(LTCPulses, STAPulses, by = c("PeakDate", "PeakValue"))
@@ -421,7 +471,7 @@ PulsesTablegt <- PulsesTable %>%
 gtsave(data = PulsesTablegt, filename = "03 Outputs/WAGG03PulseSummaryTable.png", vwidth = 2000)
 
 # 7 EXCEEDANCE OF LTC WQG BOOTSTRAPPING ---------------------------------------
-Wagg <- read.csv("02 Data/Wagg.csv")
+Wagg <- read.csv(wagg_path)
 
 monthly_coverage <- Wagg %>%
   filter(!is.na(Cl_mgL)) %>%
@@ -499,7 +549,7 @@ bootstrap_sampling_monthly <- function(data, n_iterations, guideline, n_samples)
 }
 
 # Initialize .csv file 
-write.csv(combined_results, "combined_results.csv", row.names = FALSE)
+write.csv(combined_results, combined_path, row.names = FALSE)
 
 # Run in batches
 for (i in seq(1, total_iterations, by = batch_size)) {
@@ -533,7 +583,7 @@ for (i in seq(1, total_iterations, by = batch_size)) {
               row.names = FALSE, col.names = FALSE)  # Avoid writing headers again
 }
 
-combined_results <- read.csv("combined_results.csv")
+combined_results <- read.csv(combined_path)
 
 # Aggregate results across batches
 final_results <- combined_results %>%
