@@ -22,12 +22,12 @@ library(gt)
 # Argument parsing and usage help
 print_usage <- function() {
   cat("\nNSSK.R - North Shore Streamkeepers Summary Chloride Analysis\n")
-  cat("Usage: Rscript NSSK.R <input_csv_file> [parent_output_dir]\n")
+  cat("Usage: Rscript NSSK.R <input_csv_file> [-o <output_dir>]\n")
   cat("\nArguments:\n")
-  cat("  input_csv_file      Path to the DFO CoSMo CSV data file containing water quality data.\n")
-  cat("  parent_output_dir   Optional: directory where output directories and files will be written.\n")
-  cat("                      If not provided, a timestamped directory will be created in the current working directory.\n")
+  cat("  input_csv_file      Path to the CSV file containing water quality data.\n")
   cat("\nOptions:\n")
+  cat("  -o <output_dir>     Optional: directory where output directories and files will be written.\n")
+  cat("                      If not provided, a timestamped directory will be created in the current working directory.\n")
   cat("  --help, -h          Show this help message and exit.\n")
   cat("\n")
 }
@@ -37,16 +37,33 @@ if (any(args %in% c("-h", "--help"))) {
   print_usage()
   quit(status = 0)
 }
+# Parse -o option for output directory
+output_dir_flag <- which(args == "-o")
+output_dir <- NULL
+if (length(output_dir_flag) > 0) {
+  flag_idx <- output_dir_flag[1]
+  if (flag_idx < length(args)) {
+    output_dir <- args[flag_idx + 1]
+    # Remove -o and its value from args
+    args <- args[-c(flag_idx, flag_idx + 1)]
+  } else {
+    cat("Error: -o flag requires a directory argument.\n")
+    quit(status = 1)
+  }
+}
+# Validate input file argument
 if (length(args) < 1 || !nzchar(args[1])) {
     print_usage()
     quit(status = 1)
 }
 input_file <- args[1]
-parent_out_dir <- if (length(args) >= 2 && nzchar(args[2])) {
-    args[2]
+parent_out_dir <- if (!is.null(output_dir)) {
+    output_dir
 } else {
     file.path(getwd(), paste0("analysis-", format(Sys.time(), "%Y%m%d-%H%M%S")))
 }
+cat("\nInput CSV file: ", normalizePath(input_file), "\n")
+cat("Output directory: ", normalizePath(parent_out_dir), "\n")
 if (!file.exists(input_file)) {
     stop("Input CSV file not found: ", input_file)
 }
