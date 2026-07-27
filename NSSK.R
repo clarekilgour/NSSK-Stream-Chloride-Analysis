@@ -121,7 +121,6 @@ for (d in c(data_dir, plot_dir)) {
 
 ############################
 # output resources
-plot.file.path <- plot_dir
 
 # Full path for the filtered Wagg dataset (monitoring locations WAGG01 and WAGG03, with non‑missing specific conductance).
 wagg_path <- file.path(data_dir, "Wagg.csv")
