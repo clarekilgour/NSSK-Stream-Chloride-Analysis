@@ -52,6 +52,7 @@ save_gt_png <- function(gt_obj, filename, width = 2000, height = 1200, res = 200
 # Argument parsing and usage help
 print_usage <- function() {
   cat("\nNSSK.R - North Shore Streamkeepers Summary Chloride Analysis\n")
+  cat("Analysis by Clare L. Kilgour <https://github.com/clarekilgour>\n")
   cat("Usage: Rscript NSSK.R <input_csv_file> [-o <output_dir>]\n")
   cat("\nArguments:\n")
   cat("  input_csv_file      Path to the CSV file containing water quality data.\n")
@@ -69,11 +70,11 @@ if (any(args %in% c("-h", "--help"))) {
 }
 # Parse -o option for output directory
 output_dir_flag <- which(args == "-o")
-output_dir <- NULL
+output_dir_arg <- NULL
 if (length(output_dir_flag) > 0) {
   flag_idx <- output_dir_flag[1]
   if (flag_idx < length(args)) {
-    output_dir <- args[flag_idx + 1]
+    output_dir_arg <- args[flag_idx + 1]
     # Remove -o and its value from args
     args <- args[-c(flag_idx, flag_idx + 1)]
   } else {
@@ -85,7 +86,10 @@ if (length(output_dir_flag) > 0) {
     }
   }
 }
-# Validate input file argument
+# Validate input file argument.
+# Headless (Rscript): a missing or empty argument is a fatal usage error — print help and exit.
+# Interactive (RStudio): commandArgs() returns nothing useful, so fall back to a default file
+# relative to the project root. Place the CoSMo CSV export there before sourcing.
 if (length(args) < 1 || !nzchar(args[1])) {
     if (!interactive()) {
         print_usage()
@@ -96,23 +100,27 @@ if (length(args) < 1 || !nzchar(args[1])) {
 } else {
     input_file <- args[1]
 }
-parent_out_dir <- if (!is.null(output_dir)) {
-    output_dir
-} else {
-    file.path(getwd(), paste0("analysis-", format(Sys.time(), "%Y%m%d-%H%M%S")))
-}
 if (!file.exists(input_file)) {
     stop("Input CSV file not found: ", input_file)
 }
 input_file <- normalizePath(input_file)
 cat("\nInput CSV file: ", input_file, "\n")
-cat("Output directory: ", parent_out_dir, "\n")
-# Create parent and subdirectories
-if (!dir.create(parent_out_dir, recursive = TRUE, showWarnings = FALSE) && !dir.exists(parent_out_dir)) {
-    stop("Failed to create parent output directory: ", parent_out_dir)
+# Resolve the output directory.
+# Headless: use the -o argument if supplied, otherwise create a timestamped directory in cwd.
+# Interactive: -o is never set (commandArgs() is empty), so always produces a timestamped
+# directory under the project root (cwd when opened via the .Rproj file).
+output_dir <- if (!is.null(output_dir_arg)) {
+    output_dir_arg
+} else {
+    file.path(getwd(), paste0("analysis-", format(Sys.time(), "%Y%m%d-%H%M%S")))
 }
-data_dir <- file.path(parent_out_dir, "02 Data")
-plot_dir <- file.path(parent_out_dir, "03 Outputs")
+cat("Output directory: ", output_dir, "\n")
+# Create parent and subdirectories
+if (!dir.create(output_dir, recursive = TRUE, showWarnings = FALSE) && !dir.exists(output_dir)) {
+    stop("Failed to create output directory: ", output_dir)
+}
+data_dir <- file.path(output_dir, "02 Data")
+plot_dir <- file.path(output_dir, "03 Outputs")
 for (d in c(data_dir, plot_dir)) {
     if (!dir.create(d, recursive = TRUE, showWarnings = FALSE) && !dir.exists(d)) {
         stop("Failed to create subdirectory: ", d)
@@ -132,7 +140,7 @@ stapulses_path <- file.path(data_dir, "WaggSTAPulses.csv")
 ltcpulses_path <- file.path(data_dir, "WaggLTCPulses.csv")
 
 # Full path for combined bootstrap results CSV
-combined_path <- file.path(parent_out_dir, "combined_results.csv")
+combined_path <- file.path(output_dir, "combined_results.csv")
 
 # Full paths for pulse summary table PNGs
 wagg01_table_path   <- file.path(plot_dir, "WAGG01PulseSummaryTable.png")
@@ -145,7 +153,7 @@ pulse_types_path      <- file.path(plot_dir, "WaggPulseTypes.png")
 ltc_exceedance_path   <- file.path(plot_dir, "OddsofLTCExceedbyMonthTraceWagg.png")
 
 # Full path for the default R plot device output
-rplots_path <- file.path(parent_out_dir, "Rplots.pdf")
+rplots_path <- file.path(output_dir, "Rplots.pdf")
 if (!interactive()) pdf(file = rplots_path)
 #############################
 
