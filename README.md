@@ -42,6 +42,12 @@ See [SETUP.md](SETUP.md) for installation instructions for Mac, Unix, and Window
 
 See [RUN.md](RUN.md) for instructions on running headlessly with `Rscript` or interactively in RStudio.
 
+## Further Reading
+
+- [LINK TO EXTERNAL RESOURCE 1]
+- [LINK TO EXTERNAL RESOURCE 2]
+- [LINK TO EXTERNAL RESOURCE 3]
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
