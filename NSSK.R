@@ -12,12 +12,42 @@ rm(list=ls()) #this cleans up the workspace (gets rid of variables etc)
 
 ## 1.1 Load Packages ----
 library(tidyverse) 
-library(stringr)
-library(dplyr)
-library(readxl)
 library(lubridate)
 library(gt)
+library(grid)
+library(ragg)
 
+###############
+# conflicted package enforce masks explicitly
+library(conflicted)
+conflict_prefer("filter", "dplyr")
+conflict_prefer("lag", "dplyr")
+
+###############
+
+
+########################################
+# traceback()
+
+# enable traceback effectively for debugging
+if (!interactive()) {
+  options(error = function() {
+    traceback(2)
+    quit(status = 1)
+  })
+}
+########################################
+
+# Function to write PNG from gt on headless system
+save_gt_png <- function(gt_obj, filename, width = 2000, height = 1200, res = 200) {
+  dir.create(dirname(filename), recursive = TRUE, showWarnings = FALSE)
+  ragg::agg_png(filename, width = width, height = height, res = res)
+  on.exit(dev.off(), add = TRUE)
+  grid::grid.newpage()
+  grid::grid.draw(gt::as_gtable(gt_obj))
+}
+
+########################################
 ## 1.2 Setup file path for outputs ----
 # Argument parsing and usage help
 print_usage <- function() {
@@ -35,7 +65,7 @@ args <- commandArgs(trailingOnly = TRUE)
 # Check for help flag
 if (any(args %in% c("-h", "--help"))) {
   print_usage()
-  quit(status = 0)
+  if (!interactive()) quit(status = 0)
 }
 # Parse -o option for output directory
 output_dir_flag <- which(args == "-o")
@@ -47,26 +77,36 @@ if (length(output_dir_flag) > 0) {
     # Remove -o and its value from args
     args <- args[-c(flag_idx, flag_idx + 1)]
   } else {
-    cat("Error: -o flag requires a directory argument.\n")
-    quit(status = 1)
+    if (!interactive()) {
+      cat("Error: -o flag requires a directory argument.\n")
+      quit(status = 1)
+    } else {
+      stop("-o flag requires a directory argument.")
+    }
   }
 }
 # Validate input file argument
 if (length(args) < 1 || !nzchar(args[1])) {
-    print_usage()
-    quit(status = 1)
+    if (!interactive()) {
+        print_usage()
+        quit(status = 1)
+    } else {
+        input_file <- "./May_30_2025_Download.csv"
+    }
+} else {
+    input_file <- args[1]
 }
-input_file <- args[1]
 parent_out_dir <- if (!is.null(output_dir)) {
     output_dir
 } else {
     file.path(getwd(), paste0("analysis-", format(Sys.time(), "%Y%m%d-%H%M%S")))
 }
-cat("\nInput CSV file: ", normalizePath(input_file), "\n")
-cat("Output directory: ", normalizePath(parent_out_dir), "\n")
 if (!file.exists(input_file)) {
     stop("Input CSV file not found: ", input_file)
 }
+input_file <- normalizePath(input_file)
+cat("\nInput CSV file: ", input_file, "\n")
+cat("Output directory: ", parent_out_dir, "\n")
 # Create parent and subdirectories
 if (!dir.create(parent_out_dir, recursive = TRUE, showWarnings = FALSE) && !dir.exists(parent_out_dir)) {
     stop("Failed to create parent output directory: ", parent_out_dir)
@@ -78,15 +118,37 @@ for (d in c(data_dir, plot_dir)) {
         stop("Failed to create subdirectory: ", d)
     }
 }
+
+############################
+# output resources
 plot.file.path <- plot_dir
+
 # Full path for the filtered Wagg dataset (monitoring locations WAGG01 and WAGG03, with non‑missing specific conductance).
 wagg_path <- file.path(data_dir, "Wagg.csv")
+
 # Full path for short‑term acute pulse CSV
 stapulses_path <- file.path(data_dir, "WaggSTAPulses.csv")
+
 # Full path for long‑term chronic pulse CSV
 ltcpulses_path <- file.path(data_dir, "WaggLTCPulses.csv")
+
 # Full path for combined bootstrap results CSV
 combined_path <- file.path(parent_out_dir, "combined_results.csv")
+
+# Full paths for pulse summary table PNGs
+wagg01_table_path   <- file.path(plot_dir, "WAGG01PulseSummaryTable.png")
+wagg03_table_path   <- file.path(plot_dir, "WAGG03PulseSummaryTable.png")
+
+# Full paths for ggplot PNGs
+chloride_summary_path <- file.path(plot_dir, "WaggSurfaceWaterChloride2022-25.png")
+chloride_pulses_path  <- file.path(plot_dir, "WaggSurfaceWaterChloride2021-25CircledPulses.png")
+pulse_types_path      <- file.path(plot_dir, "WaggPulseTypes.png")
+ltc_exceedance_path   <- file.path(plot_dir, "OddsofLTCExceedbyMonthTraceWagg.png")
+
+# Full path for the default R plot device output
+rplots_path <- file.path(parent_out_dir, "Rplots.pdf")
+if (!interactive()) pdf(file = rplots_path)
+#############################
 
 # 2 LOADING DATA --------------------------------------------------------------
 Data <- read.csv(input_file) %>%
@@ -310,7 +372,7 @@ gg <- gg + labs(linetype = "BC Water Quality Guidelines\nfor Chloride",
 gg <- gg + theme(text = element_text(size = 15))
 gg <- gg + theme_bw()
 gg 
-ggsave(path = plot.file.path, paste("WaggSurfaceWaterChloride2022-25.png"), plot = gg, width = 10)
+ggsave(filename = chloride_summary_path, plot = gg, width = 10)
 
 ## 5.2 Highlighting pulse events ----
 gg <- ggplot(data = Wagg %>%
@@ -333,7 +395,7 @@ gg <- gg + labs(linetype = "BC Water Quality Guidelines\nfor Chloride",
 gg <- gg + theme(text = element_text(size = 15))
 gg <- gg + theme_bw()
 gg 
-ggsave(path = plot.file.path, paste("WaggSurfaceWaterChloride2021-25CircledPulses.png"), plot = gg, width = 10)
+ggsave(filename = chloride_pulses_path, plot = gg, width = 10)
 
 # 6 KEY VALUES ----------------------------------------------------------------
 ## 6.1 Total number of unique pulses ---
@@ -370,7 +432,7 @@ gg <- gg + labs(x = "Month",
                 fill = "Pulse Type")
 gg <- gg + facet_wrap(~MonitoringLocationID, ncol = 1, scales = "free_y")
 gg
-ggsave(path = plot.file.path, paste("WaggPulseTypes.png"), plot = gg, width = 12)
+ggsave(filename = pulse_types_path, plot = gg, width = 12)
 
 ## 6.3 Summary table ----
 ### WAGG01
@@ -428,7 +490,7 @@ PulsesTablegt <- PulsesTable %>%
     row.striping.include_table_body = TRUE,
     row.striping.background_color = "#f9f9f9"
   )
-gtsave(data = PulsesTablegt, filename = "03 Outputs/WAGG01PulseSummaryTable.png", vwidth = 2000)
+save_gt_png(PulsesTablegt, wagg01_table_path, width = 2000)
 
 ### WAGG03
 PulsesTablegt <- PulsesTable %>%
@@ -485,7 +547,7 @@ PulsesTablegt <- PulsesTable %>%
     row.striping.include_table_body = TRUE,
     row.striping.background_color = "#f9f9f9"
   )
-gtsave(data = PulsesTablegt, filename = "03 Outputs/WAGG03PulseSummaryTable.png", vwidth = 2000)
+save_gt_png(PulsesTablegt, wagg03_table_path, width = 2000)
 
 # 7 EXCEEDANCE OF LTC WQG BOOTSTRAPPING ---------------------------------------
 Wagg <- read.csv(wagg_path)
@@ -596,7 +658,7 @@ for (i in seq(1, total_iterations, by = batch_size)) {
   
   
   # Write batch results to the .csv file
-  write.table(batch_results, "combined_results.csv", append = TRUE, sep = ",",
+  write.table(batch_results, combined_path, append = TRUE, sep = ",",
               row.names = FALSE, col.names = FALSE)  # Avoid writing headers again
 }
 
@@ -652,6 +714,7 @@ gg <- gg + scale_alpha_continuous(range = c(0, 0.4),
 gg <- gg + facet_wrap(~MonitoringLocationID, ncol = 1, scales = "free_y")
 gg <- gg + coord_cartesian(ylim = c(0,2000))
 gg 
-ggsave(path = plot.file.path, paste("OddsofLTCExceedbyMonthTraceWagg.png"), plot = gg, width = 10)
+ggsave(filename = ltc_exceedance_path, plot = gg, width = 10)
 
-
+# Close the PDF device opened at rplots_path; matches the pdf() call in section 1.2
+if (!interactive()) invisible(dev.off())
