@@ -5,3 +5,5 @@
 
 analysis-*
 *.csv
+
+.DS_Store
