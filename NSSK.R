@@ -89,7 +89,7 @@ if (length(output_dir_flag) > 0) {
 # Validate input file argument.
 # Headless (Rscript): a missing or empty argument is a fatal usage error — print help and exit.
 # Interactive (RStudio): commandArgs() returns nothing useful, so fall back to a default file
-# relative to the project root. Place the CoSMo CSV export there before sourcing.
+# relative to the project root. Place the input CSV there before sourcing.
 if (length(args) < 1 || !nzchar(args[1])) {
     if (!interactive()) {
         print_usage()
