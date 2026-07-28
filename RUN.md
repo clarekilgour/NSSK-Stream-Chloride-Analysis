@@ -1,15 +1,5 @@
 # Running the Analysis
 
-## Data
-
-Input data is a CSV export from the [CoSMo / CIOOS data portal](https://cioos.ca).
-
-**[PLACEHOLDER: DESCRIBE THE SPECIFIC DATASET, SEARCH PARAMETERS, OR DOWNLOAD STEPS NEEDED TO REPRODUCE THE INPUT FILE]**
-
-The default interactive filename is `May_30_2025_Download.csv` placed at the project root. A different file can be supplied at runtime — see below.
-
----
-
 ## Headless (Rscript)
 
 Run from the project root:
@@ -25,11 +15,11 @@ Rscript NSSK.R <input_csv_file> [-o <output_dir>]
 ### Examples
 
 ```bash
-# Timestamped output in cwd
+# By default generates analysis resources in a timestamped directory (e.g. analysis-20260726-215424) in the current working directory
 Rscript NSSK.R data/May_30_2025_Download.csv
 
 # Explicit output directory
-Rscript NSSK.R data/May_30_2025_Download.csv -o results/may-2025
+Rscript NSSK.R data/May_30_2025_Download.csv -o /path/to/analysis_results
 ```
 
 ### Output location
