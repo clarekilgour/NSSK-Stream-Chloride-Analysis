@@ -43,8 +43,8 @@ if (!interactive()) {
 }
 ########################################
 
-## 1.1.1 Helper functions ----
-# Resolve the directory containing this script so render.R can be sourced by path
+## 1.1.1 Source files ----
+# Resolve the directory containing this script so external files can be sourced by path
 # regardless of the working directory at invocation time.
 # Rscript:   derived from --file= in commandArgs(trailingOnly = FALSE)
 # RStudio:   falls back to getwd(), which is the project root via the .Rproj file
@@ -54,12 +54,11 @@ if (!interactive()) {
 } else {
   getwd()
 }
-source(file.path(.script_dir, "render.R"))
+source(file.path(.script_dir, "render.R")) # save_gt_png: renders gt tables to PNG
+source(file.path(.script_dir, "shell.R"))  # parse_args, input_file_arg, output_dir_arg: command-line argument parsing
 
 ########################################
 ## 1.1.2 Shell argument processing ----
-# parse_args() and key constants sourced from shell.R; .script_dir defined in section 1.1.1.
-source(file.path(.script_dir, "shell.R"))
 parsed     <- parse_args(commandArgs(trailingOnly = TRUE))
 input_file <- parsed[[input_file_arg]]
 if (is.null(input_file)) stop("internal error: parse_args returned NULL for input_file")
