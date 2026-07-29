@@ -11,20 +11,24 @@
 rm(list=ls()) #this cleans up the workspace (gets rid of variables etc)
 
 ## 1.1 Load Packages ----
-library(tidyverse) 
+
+# conflicted must be loaded before other packages so its shims are in place
+# when conflicting names are introduced. conflict_prefer() calls must come after
+# the packages that create the conflicts, so preferences can be registered against
+# known conflicts.
+library(conflicted)
+
+library(tidyverse)
 library(lubridate)
 library(gt)
 library(grid)
 library(ragg)
 
-###############
-# conflicted package enforce masks explicitly
-library(conflicted)
+# Resolve ambiguities between dplyr and stats for functions used in the analysis.
+# dplyr masking stats is already the default behaviour due to load order, but
+# conflict_prefer() enforces this explicitly rather than relying on that implicit order.
 conflict_prefer("filter", "dplyr")
 conflict_prefer("lag", "dplyr")
-
-###############
-
 
 ########################################
 # traceback()
@@ -92,13 +96,11 @@ save_gt_png <- function(gt_obj, filename, width = 2000, height = 1200, res = 200
 }
 
 ########################################
-## 1.2 Setup file path for outputs ----
-
 ## 0.2 Shell argument processing ----
 print_usage <- function() {
   cat("\nNSSK.R - North Shore Streamkeepers Summary Chloride Analysis\n")
   cat("Analysis by Clare L. Kilgour <https://github.com/clarekilgour>\n")
-  cat("Usage: Rscript NSSK.R <input_csv_file> [-o <output_dir>]\n")
+  cat("\nUsage: Rscript NSSK.R <input_csv_file> [-o <output_dir>]\n")
   cat("\nArguments:\n")
   cat("  input_csv_file      Path to the CSV file containing water quality data.\n")
   cat("\nOptions:\n")
@@ -174,7 +176,7 @@ for (d in c(data_dir, plot_dir)) {
 }
 
 ############################
-# output resources
+## 1.2 Setup file path for outputs ----
 
 # Full path for the filtered Wagg dataset (monitoring locations WAGG01 and WAGG03, with non‑missing specific conductance).
 wagg_path <- file.path(data_dir, "Wagg.csv")
