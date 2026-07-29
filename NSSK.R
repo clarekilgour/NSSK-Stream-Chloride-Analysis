@@ -9,6 +9,7 @@
 
 # 1 SETTING UP WORKSPACE ------------------------------------------------------
 rm(list=ls()) #this cleans up the workspace (gets rid of variables etc)
+# no-op in Rscript (fresh environment per invocation)
 
 ## 1.1 Load Packages ----
 
