@@ -58,71 +58,16 @@ source(file.path(.script_dir, "render.R"))
 
 ########################################
 ## 1.1.2 Shell argument processing ----
-print_usage <- function() {
-  cat("\nNSSK.R - North Shore Streamkeepers Summary Chloride Analysis\n")
-  cat("Analysis by Clare L. Kilgour <https://github.com/clarekilgour>\n")
-  cat("\nUsage: Rscript NSSK.R <input_csv_file> [-o <output_dir>]\n")
-  cat("\nArguments:\n")
-  cat("  input_csv_file      Path to the CSV file containing water quality data.\n")
-  cat("\nOptions:\n")
-  cat("  -o <output_dir>     Optional: directory where output directories and files will be written.\n")
-  cat("                      If not provided, a timestamped directory will be created in the current working directory.\n")
-  cat("  --help, -h          Show this help message and exit.\n")
-  cat("\n")
-}
-args <- commandArgs(trailingOnly = TRUE)
-# Check for help flag
-if (any(args %in% c("-h", "--help"))) {
-  print_usage()
-  if (!interactive()) quit(status = 0)
-}
-# Parse -o option for output directory
-output_dir_flag <- which(args == "-o")
-output_dir_arg <- NULL
-if (length(output_dir_flag) > 0) {
-  flag_idx <- output_dir_flag[1]
-  if (flag_idx < length(args)) {
-    output_dir_arg <- args[flag_idx + 1]
-    # Remove -o and its value from args
-    args <- args[-c(flag_idx, flag_idx + 1)]
-  } else {
-    if (!interactive()) {
-      cat("Error: -o flag requires a directory argument.\n")
-      quit(status = 1)
-    } else {
-      stop("-o flag requires a directory argument.")
-    }
-  }
-}
-# Validate input file argument.
-# Headless (Rscript): a missing or empty argument is a fatal usage error — print help and exit.
-# Interactive (RStudio): commandArgs() returns nothing useful, so fall back to a default file
-# relative to the project root. Place the input CSV there before sourcing.
-if (length(args) < 1 || !nzchar(args[1])) {
-    if (!interactive()) {
-        print_usage()
-        quit(status = 1)
-    } else {
-        input_file <- "./May_30_2025_Download.csv"
-    }
-} else {
-    input_file <- args[1]
-}
-if (!file.exists(input_file)) {
-    stop("Input CSV file not found: ", input_file)
-}
-input_file <- normalizePath(input_file)
+# parse_args() and key constants sourced from shell.R; .script_dir defined in section 1.1.1.
+source(file.path(.script_dir, "shell.R"))
+parsed     <- parse_args(commandArgs(trailingOnly = TRUE))
+input_file <- parsed[[input_file_arg]]
+if (is.null(input_file)) stop("internal error: parse_args returned NULL for input_file")
+output_dir <- parsed[[output_dir_arg]]
+if (is.null(output_dir)) stop("internal error: parse_args returned NULL for output_dir")
 cat("\nInput CSV file: ", input_file, "\n")
 ## 1.1.3 Output directory ----
-# Resolve the output directory.
-# Headless: use the -o argument if supplied, otherwise create a timestamped directory in cwd.
-# Interactive: -o is never set (commandArgs() is empty), so always produces a timestamped
-# directory under the project root (cwd when opened via the .Rproj file).
-output_dir <- if (!is.null(output_dir_arg)) {
-    output_dir_arg
-} else {
-    file.path(getwd(), paste0("analysis-", format(Sys.time(), "%Y%m%d-%H%M%S")))
-}
+# output_dir is fully resolved by parse_args() in shell.R (section 1.1.2).
 cat("Output directory: ", output_dir, "\n")
 # Create parent and subdirectories
 if (!dir.create(output_dir, recursive = TRUE, showWarnings = FALSE) && !dir.exists(output_dir)) {
