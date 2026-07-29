@@ -42,7 +42,7 @@ if (!interactive()) {
 }
 ########################################
 
-## 0.1 Helper functions ----
+## 1.1.1 Helper functions ----
 # Render a gt table object to a PNG file.
 # Renders via ragg and grid, avoiding the webshot2/browser dependency of gt::gtsave().
 #
@@ -96,7 +96,7 @@ save_gt_png <- function(gt_obj, filename, width = 2000, height = 1200, res = 200
 }
 
 ########################################
-## 0.2 Shell argument processing ----
+## 1.1.2 Shell argument processing ----
 print_usage <- function() {
   cat("\nNSSK.R - North Shore Streamkeepers Summary Chloride Analysis\n")
   cat("Analysis by Clare L. Kilgour <https://github.com/clarekilgour>\n")
@@ -152,7 +152,7 @@ if (!file.exists(input_file)) {
 }
 input_file <- normalizePath(input_file)
 cat("\nInput CSV file: ", input_file, "\n")
-## 0.3 Output directory ----
+## 1.1.3 Output directory ----
 # Resolve the output directory.
 # Headless: use the -o argument if supplied, otherwise create a timestamped directory in cwd.
 # Interactive: -o is never set (commandArgs() is empty), so always produces a timestamped
