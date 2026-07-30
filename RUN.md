@@ -44,6 +44,14 @@ By default the script reads `./May_30_2025_Download.csv` relative to the project
 
 Output is written to a timestamped directory in the project root. Plots are displayed sequentially in the RStudio Plots pane during the run and are navigable via the pane's history arrows. `Rplots.pdf` is not produced in interactive mode.
 
+### Graphics backend
+
+For plot previews in the Plots pane to match the saved PNG output, set the RStudio graphics backend to AGG:
+
+**Tools → Global Options → Graphics → Backend → AGG**
+
+This is a one-time per-user setting. The script sets `options(ggplot2.use_agg = TRUE)` so saved files always use ragg; this setting makes the live preview consistent with them.
+
 ---
 
 ## Help
