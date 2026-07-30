@@ -31,6 +31,10 @@ library(ragg)
 conflict_prefer("filter", "dplyr")
 conflict_prefer("lag", "dplyr")
 
+# Use ragg for all ggsave() bitmap output — consistent device across headless and RStudio,
+# independent of OS graphics stack (Cairo/Quartz/GDI).
+options(ggplot2.use_agg = TRUE)
+
 ########################################
 # traceback()
 
@@ -332,7 +336,10 @@ gg <- gg + labs(linetype = "BC Water Quality Guidelines\nfor Chloride",
 gg <- gg + theme(text = element_text(size = 15))
 gg <- gg + theme_bw()
 gg 
-ggsave(filename = chloride_summary_path, plot = gg, width = 10)
+# height matches the RStudio Plots pane default (5.94 in / 1781 px at 300 dpi).
+# Without an explicit height, ggsave() inherits the current device height:
+# headless uses the pdf() device default (7 in), RStudio uses the pane size — producing different outputs.
+ggsave(filename = chloride_summary_path, plot = gg, width = 10, height = 5.94)
 
 ## 5.2 Highlighting pulse events ----
 gg <- ggplot(data = Wagg %>%
@@ -355,7 +362,7 @@ gg <- gg + labs(linetype = "BC Water Quality Guidelines\nfor Chloride",
 gg <- gg + theme(text = element_text(size = 15))
 gg <- gg + theme_bw()
 gg 
-ggsave(filename = chloride_pulses_path, plot = gg, width = 10)
+ggsave(filename = chloride_pulses_path, plot = gg, width = 10, height = 5.94)
 
 # 6 KEY VALUES ----------------------------------------------------------------
 ## 6.1 Total number of unique pulses ---
@@ -392,7 +399,7 @@ gg <- gg + labs(x = "Month",
                 fill = "Pulse Type")
 gg <- gg + facet_wrap(~MonitoringLocationID, ncol = 1, scales = "free_y")
 gg
-ggsave(filename = pulse_types_path, plot = gg, width = 12)
+ggsave(filename = pulse_types_path, plot = gg, width = 12, height = 5.94)
 
 ## 6.3 Summary table ----
 ### WAGG01
@@ -674,7 +681,7 @@ gg <- gg + scale_alpha_continuous(range = c(0, 0.4),
 gg <- gg + facet_wrap(~MonitoringLocationID, ncol = 1, scales = "free_y")
 gg <- gg + coord_cartesian(ylim = c(0,2000))
 gg 
-ggsave(filename = ltc_exceedance_path, plot = gg, width = 10)
+ggsave(filename = ltc_exceedance_path, plot = gg, width = 10, height = 5.94)
 
 # Close the PDF device opened at rplots_path; matches the pdf() call in section 1.2
 if (!interactive()) invisible(dev.off())
