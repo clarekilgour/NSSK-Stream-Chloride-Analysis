@@ -24,6 +24,7 @@ library(lubridate)
 library(gt)
 library(grid)
 library(ragg)
+library(fs)
 
 # Resolve ambiguities between dplyr and stats for functions used in the analysis.
 # dplyr masking stats is already the default behaviour due to load order, but

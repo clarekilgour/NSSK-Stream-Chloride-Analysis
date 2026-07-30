@@ -88,7 +88,7 @@ Install R from [CRAN](https://cran.r-project.org/bin/windows/base/). Pre-compile
 From an R session at the project root:
 
 ```r
-install.packages(c("tidyverse", "lubridate", "gt", "ragg", "conflicted"))
+install.packages(c("tidyverse", "lubridate", "gt", "ragg", "conflicted", "fs"))
 ```
 
 `grid` is included with base R and does not need to be installed separately.
