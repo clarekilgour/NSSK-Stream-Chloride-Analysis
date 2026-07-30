@@ -100,6 +100,8 @@ parse_args <- function(args) {
     output_dir_value <- file.path(getwd(), paste0("analysis-", format(Sys.time(), "%Y%m%d-%H%M%S")))
   }
 
+  output_dir_value <- normalizePath(output_dir_value, mustWork = FALSE)
+
   # Return named list; callers access values via the exported key constants.
   # Both values are always non-NULL; NULL in the caller indicates an internal error.
   result <- list()
