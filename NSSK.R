@@ -63,12 +63,12 @@ if (!interactive()) {
 # RStudio:   falls back to getwd(), which is the project root via the .Rproj file
 .script_dir <- if (!interactive()) {
   file_arg <- grep("--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
-  dirname(normalizePath(sub("--file=", "", file_arg[1])))
+  as.character(fs::path_dir(fs::path_abs(sub("--file=", "", file_arg[1]))))
 } else {
   getwd()
 }
 source(file.path(.script_dir, "render.R")) # save_gt_png: renders gt tables to PNG
-source(file.path(.script_dir, "shell.R"))  # parse_args, input_file_arg, output_dir_arg: command-line argument parsing
+source(file.path(.script_dir, "args.R"))   # parse_args, input_file_arg, output_dir_arg: command-line argument parsing
 source(file.path(.script_dir, "theme.R"))  # .theme_font, build_theme: plot theming
 
 ########################################
@@ -80,7 +80,7 @@ output_dir <- parsed[[output_dir_arg]]
 if (is.null(output_dir)) stop("internal error: parse_args returned NULL for output_dir")
 cat("\nInput CSV file: ", input_file, "\n")
 ## 1.1.3 Output directory ----
-# output_dir is fully resolved by parse_args() in shell.R (section 1.1.2).
+# output_dir is fully resolved by parse_args() in args.R (section 1.1.2).
 cat("Output directory: ", output_dir, "\n")
 # Create parent and subdirectories
 if (!dir.create(output_dir, recursive = TRUE, showWarnings = FALSE) && !dir.exists(output_dir)) {

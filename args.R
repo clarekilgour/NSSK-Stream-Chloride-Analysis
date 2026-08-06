@@ -1,4 +1,4 @@
-# shell.R — command-line argument parsing for NSSK.R
+# args.R — command-line argument parsing for NSSK.R
 #
 # Sourced by NSSK.R during workspace setup (section 1.1.2).
 #
@@ -11,6 +11,11 @@
 # Callers use these constants to look up values rather than relying on literal key strings.
 input_file_arg <- "input_file"
 output_dir_arg <- "output_dir_arg"
+
+# Default input file used in interactive (RStudio) mode when no argument is supplied.
+# Supports ./, ../, ~/, or absolute paths; ./ is relative to the project root (NSSK.R's directory).
+default_input_file <- "./May_30_2025_Download.csv"
+normalized_default_input_file <- as.character(fs::path_abs(default_input_file, start = .script_dir))
 
 # Print usage to stdout. Internal helper; called by parse_args() only.
 .print_usage <- function() {
@@ -80,7 +85,7 @@ parse_args <- function(args) {
       .print_usage()
       quit(status = 1)
     } else {
-      input_file_value <- "./May_30_2025_Download.csv"
+      input_file_value <- normalized_default_input_file
     }
   } else {
     input_file_value <- args[1]
@@ -90,7 +95,7 @@ parse_args <- function(args) {
     stop("Input CSV file not found: ", input_file_value)
   }
 
-  input_file_value <- normalizePath(input_file_value)
+  input_file_value <- as.character(fs::path_abs(input_file_value))
 
   # Resolve output directory.
   # Headless: use the -o argument if supplied, otherwise create a timestamped directory in cwd.
