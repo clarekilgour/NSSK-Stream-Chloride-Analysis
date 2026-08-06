@@ -3,7 +3,11 @@
 .RData
 .Ruserdata
 
+stacktrace
+
 analysis-*
 *.csv
 
 .DS_Store
+
+notes/

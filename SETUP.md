@@ -26,13 +26,18 @@ Install R via your distribution's package manager. On Debian/Ubuntu:
 sudo apt-get install r-base r-base-dev
 ```
 
-Install the required R packages and the Liberation Sans font (a metrically identical Arial substitute used by the analysis) via apt:
+Install the required R packages and Helvetica-compatible fonts via apt:
 
 ```bash
-sudo apt-get install r-cran-tidyverse r-cran-lubridate r-cran-ragg r-cran-conflicted fonts-liberation
+sudo apt-get install r-cran-tidyverse r-cran-lubridate r-cran-ragg r-cran-conflicted \
+  fonts-texgyre fonts-urw-base35 fonts-liberation
 ```
 
-On Fedora the font package is named `liberation-fonts`.
+- `fonts-texgyre` — TeX Gyre Heros (primary; purpose-built Helvetica clone, refined from Nimbus Sans)
+- `fonts-urw-base35` — Nimbus Sans (secondary; direct Helvetica clone from URW, precursor to TeX Gyre Heros)
+- `fonts-liberation` — Liberation Sans (tertiary fallback; Arial-metric compatible, not Helvetica letterforms)
+
+The script warns at startup if none of these are found.
 
 `gt` is not available as an apt package. Install it from within R:
 
