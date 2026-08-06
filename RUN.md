@@ -29,10 +29,9 @@ Rscript NSSK.R data/May_30_2025_Download.csv -o /path/to/analysis_results
   02 Data/
   03 Outputs/
   combined_results.csv
-  Rplots.pdf
 ```
 
-All plots are additionally written individually as PNGs under `03 Outputs/`. `Rplots.pdf` collects all plots in a single file and is only produced in headless mode.
+All plots are written individually as PNGs under `03 Outputs/`.
 
 ---
 
@@ -42,7 +41,7 @@ Open `NSSK Analysis.Rproj` in RStudio and source `NSSK.R`.
 
 By default the script reads `./May_30_2025_Download.csv` relative to the project root. Place the CoSMo export there before sourcing, or update the default path near the top of section 1.2.
 
-Output is written to a timestamped directory in the project root. Plots are displayed sequentially in the RStudio Plots pane during the run and are navigable via the pane's history arrows. `Rplots.pdf` is not produced in interactive mode.
+Output is written to a timestamped directory in the project root. Plots are displayed sequentially in the RStudio Plots pane during the run and are navigable via the pane's history arrows.
 
 ### Graphics backend
 

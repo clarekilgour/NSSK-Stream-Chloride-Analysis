@@ -61,7 +61,6 @@ Each run produces a parent output directory containing the following resources:
 | `03 Outputs/WAGG03PulseSummaryTable.png` | Pulse summary table — WAGG03 |
 | `03 Outputs/OddsofLTCExceedbyMonthTraceWagg.png` | Monthly exceedance risk overlay |
 | `combined_results.csv` | Bootstrap exceedance results by location and month |
-| `Rplots.pdf` | All plots in a single PDF (headless mode only) |
 
 ## Further Reading
 
