@@ -61,7 +61,8 @@ if (!interactive()) {
 # Resolve the directory containing this script so external files can be sourced by path
 # regardless of the working directory at invocation time.
 # Rscript:   derived from --file= in commandArgs(trailingOnly = FALSE)
-# RStudio:   falls back to getwd(), which is the project root via the .Rproj file
+# RStudio:   falls back to getwd() — assumes the project was opened via the .Rproj file,
+#            which sets the working directory to the project root.
 .script_dir <- if (!interactive()) {
   file_arg <- grep("--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
   if (length(file_arg) == 0) {

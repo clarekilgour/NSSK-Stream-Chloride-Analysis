@@ -15,7 +15,7 @@ Rscript NSSK.R <input_csv_file> [-o <output_dir>]
 ### Examples
 
 ```bash
-# By default generates analysis resources in a timestamped directory (e.g. analysis-20260726-215424) in the current working directory
+# By default generates analysis resources in a timestamped directory (e.g. analysis-20260726-215424) in the project root
 Rscript NSSK.R data/May_30_2025_Download.csv
 
 # Explicit output directory
