@@ -32,8 +32,9 @@ library(fs)
 conflict_prefer("filter", "dplyr")
 conflict_prefer("lag", "dplyr")
 
-# Use ragg for all ggsave() bitmap output — consistent device across headless and RStudio,
-# independent of OS graphics stack (Cairo/Quartz/GDI).
+# Use ragg for all ggsave() bitmap output — consistent rendering across headless and RStudio,
+# bypassing OS graphics pipelines (Linux: Cairo, macOS: Quartz, Windows: GDI) in favour of
+# ragg's own FreeType/HarfBuzz stack.
 options(ggplot2.use_agg = TRUE)
 
 # Output resolution for all ggsave() PNG calls.
@@ -47,7 +48,7 @@ default_ggsave_dpi <- 150
 ########################################
 # traceback()
 
-# enable traceback effectively for debugging
+# enable traceback for debugging effectively
 if (!interactive()) {
   options(error = function() {
     traceback(2)
@@ -63,24 +64,31 @@ if (!interactive()) {
 # RStudio:   falls back to getwd(), which is the project root via the .Rproj file
 .script_dir <- if (!interactive()) {
   file_arg <- grep("--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
+  if (length(file_arg) == 0) {
+    stop("--file= not found in commandArgs — invoke the script via: Rscript NSSK.R <input_csv_file>")
+  }
   as.character(fs::path_dir(fs::path_abs(sub("--file=", "", file_arg[1]))))
 } else {
   getwd()
 }
 source(file.path(.script_dir, "render.R")) # save_gt_png: renders gt tables to PNG
-source(file.path(.script_dir, "args.R"))   # parse_args, input_file_arg, output_dir_arg: command-line argument parsing
+source(file.path(.script_dir, "context.R")) # get_context, input_file_arg, output_dir_arg: resolves input file and output directory
 source(file.path(.script_dir, "theme.R"))  # .theme_font, build_theme: plot theming
 
 ########################################
 ## 1.1.2 Shell argument processing ----
-parsed     <- parse_args(commandArgs(trailingOnly = TRUE))
-input_file <- parsed[[input_file_arg]]
-if (is.null(input_file)) stop("internal error: parse_args returned NULL for input_file")
-output_dir <- parsed[[output_dir_arg]]
-if (is.null(output_dir)) stop("internal error: parse_args returned NULL for output_dir")
+
+# get parameters for the the execution context
+ctx     <- get_context()
+
+input_file <- ctx[[input_file_arg]]
+if (is.null(input_file)) stop("internal error: get_context returned NULL for input_file") # one last check
+output_dir <- ctx[[output_dir_arg]]
+if (is.null(output_dir)) stop("internal error: get_context returned NULL for output_dir") # one last check
+
 cat("\nInput CSV file: ", input_file, "\n")
 ## 1.1.3 Output directory ----
-# output_dir is fully resolved by parse_args() in args.R (section 1.1.2).
+# output_dir is fully resolved by get_context() in context.R (section 1.1.2).
 cat("Output directory: ", output_dir, "\n")
 # Create parent and subdirectories
 if (!dir.create(output_dir, recursive = TRUE, showWarnings = FALSE) && !dir.exists(output_dir)) {
