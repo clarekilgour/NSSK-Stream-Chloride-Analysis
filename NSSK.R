@@ -9,20 +9,129 @@
 
 # 1 SETTING UP WORKSPACE ------------------------------------------------------
 rm(list=ls()) #this cleans up the workspace (gets rid of variables etc)
+# no-op in Rscript (fresh environment per invocation)
 
 ## 1.1 Load Packages ----
-library(tidyverse) 
-library(stringr)
-library(dplyr)
-library(readxl)
+
+# conflicted must be loaded before other packages so its shims are in place
+# when conflicting names are introduced. conflict_prefer() calls must come after
+# the packages that create the conflicts, so preferences can be registered against
+# known conflicts.
+library(conflicted)
+
+library(tidyverse)
 library(lubridate)
 library(gt)
+library(grid)
+library(ragg)
+library(fs)
 
+# Resolve ambiguities between dplyr and stats for functions used in the analysis.
+# dplyr masking stats is already the default behaviour due to load order, but
+# conflict_prefer() enforces this explicitly rather than relying on that implicit order.
+conflict_prefer("filter", "dplyr")
+conflict_prefer("lag", "dplyr")
+
+# Use ragg for all ggsave() bitmap output — consistent rendering across headless and RStudio,
+# bypassing OS graphics pipelines (Linux: Cairo, macOS: Quartz, Windows: GDI) in favour of
+# ragg's own FreeType/HarfBuzz stack.
+options(ggplot2.use_agg = TRUE)
+
+# Output resolution for all ggsave() PNG calls.
+# 150 DPI targets 1080p displays (1920x1080): charts render at ~1500-1800px wide.
+# 300 DPI targets print output or 4K displays (3840x2160): charts render at ~3000-3600px wide.
+# 96 DPI targets web embedding: smaller files, adequate for on-screen use only.
+# Note: higher DPI amplifies font rendering differences between Linux and macOS; 150 DPI
+# produces visually similar results across both platforms.
+default_ggsave_dpi <- 150
+
+########################################
+# traceback()
+
+# enable traceback for debugging effectively
+if (!interactive()) {
+  options(error = function() {
+    traceback(2)
+    quit(status = 1)
+  })
+}
+########################################
+
+## 1.1.1 Source files ----
+# Resolve the directory containing this script so external files can be sourced by path
+# regardless of the working directory at invocation time.
+# Rscript:   derived from --file= in commandArgs(trailingOnly = FALSE)
+# RStudio:   falls back to getwd() — assumes the project was opened via the .Rproj file,
+#            which sets the working directory to the project root.
+.script_dir <- if (!interactive()) {
+  file_arg <- grep("--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
+  if (length(file_arg) == 0) {
+    stop("--file= not found in commandArgs — invoke the script via: Rscript NSSK.R <input_csv_file>")
+  }
+  as.character(fs::path_dir(fs::path_abs(sub("--file=", "", file_arg[1]))))
+} else {
+  getwd()
+}
+source(file.path(.script_dir, "render.R")) # save_gt_png: renders gt tables to PNG
+source(file.path(.script_dir, "context.R")) # get_context, input_file_arg, output_dir_arg: resolves input file and output directory
+source(file.path(.script_dir, "theme.R"))  # .theme_font, build_theme: plot theming
+
+########################################
+## 1.1.2 Shell argument processing ----
+
+# get parameters for the the execution context
+ctx     <- get_context()
+
+input_file <- ctx[[input_file_arg]]
+if (is.null(input_file)) stop("internal error: get_context returned NULL for input_file") # one last check
+output_dir <- ctx[[output_dir_arg]]
+if (is.null(output_dir)) stop("internal error: get_context returned NULL for output_dir") # one last check
+
+cat("\nInput CSV file: ", input_file, "\n")
+## 1.1.3 Output directory ----
+# output_dir is fully resolved by get_context() in context.R (section 1.1.2).
+cat("Output directory: ", output_dir, "\n")
+# Create parent and subdirectories
+if (!dir.create(output_dir, recursive = TRUE, showWarnings = FALSE) && !dir.exists(output_dir)) {
+    stop("Failed to create output directory: ", output_dir)
+}
+data_dir <- file.path(output_dir, "02 Data")
+plot_dir <- file.path(output_dir, "03 Outputs")
+for (d in c(data_dir, plot_dir)) {
+    if (!dir.create(d, recursive = TRUE, showWarnings = FALSE) && !dir.exists(d)) {
+        stop("Failed to create subdirectory: ", d)
+    }
+}
+
+############################
 ## 1.2 Setup file path for outputs ----
-plot.file.path = '03 Outputs'
+
+# Full path for the filtered Wagg dataset (monitoring locations WAGG01 and WAGG03, with non‑missing specific conductance).
+wagg_path <- file.path(data_dir, "Wagg.csv")
+
+# Full path for short‑term acute pulse CSV
+stapulses_path <- file.path(data_dir, "WaggSTAPulses.csv")
+
+# Full path for long‑term chronic pulse CSV
+ltcpulses_path <- file.path(data_dir, "WaggLTCPulses.csv")
+
+# Full path for combined bootstrap results CSV
+combined_path <- file.path(output_dir, "combined_results.csv")
+
+# Full paths for pulse summary table PNGs
+wagg01_table_path   <- file.path(plot_dir, "WAGG01PulseSummaryTable.png")
+wagg03_table_path   <- file.path(plot_dir, "WAGG03PulseSummaryTable.png")
+
+# Full paths for ggplot PNGs
+chloride_summary_path <- file.path(plot_dir, "WaggSurfaceWaterChloride2022-25.png")
+chloride_pulses_path  <- file.path(plot_dir, "WaggSurfaceWaterChloride2021-25CircledPulses.png")
+pulse_types_path      <- file.path(plot_dir, "WaggPulseTypes.png")
+ltc_exceedance_path   <- file.path(plot_dir, "OddsofLTCExceedbyMonthTraceWagg.png")
+
+#############################
 
 # 2 LOADING DATA --------------------------------------------------------------
-Data <- read.csv("02 Data/May_30_2025_Download.csv") %>%
+Data <- read.csv(input_file) %>%
   select(MonitoringLocationID, MonitoringLocationName,MonitoringLocationLatitude,MonitoringLocationLongitude,
          MonitoringLocationType,ActivityType,ActivityMediaName,ActivityStartDate,ActivityStartTime,
          SampleCollectionEquipmentName,CharacteristicName,ResultValue) 
@@ -125,7 +234,7 @@ Wagg <- DataWide %>%
   subset(!is.na(`Specific conductance`))
 #254,548 obs.
 
-write.csv(Wagg,"02 Data/Wagg.csv" , row.names = FALSE)
+write.csv(Wagg, wagg_path, row.names = FALSE)
 
 # 4 FINDING PULSES ------------------------------------------------------------
 ## 4.1 Short-term acute pulses (exceed the acute water quality guideline) -----
@@ -173,7 +282,7 @@ STAPulses <- Wagg %>%
     .groups = "drop"
   ) %>%
   filter(Duration > 0) #Remove pulses with zero duration
-write.csv(STAPulses,"02 Data/WaggSTAPulses.csv" , row.names = FALSE)
+write.csv(STAPulses, stapulses_path, row.names = FALSE)
 
 ## 4.2 Long-term acute pulses (exceed the chronic water quality guideline) ----
 LTCPulses <- Wagg %>%
@@ -220,7 +329,7 @@ LTCPulses <- Wagg %>%
     .groups = "drop"
   ) %>%
   filter(Duration > 0) #Remove pulses with zero duration
-write.csv(LTCPulses,"02 Data/WaggLTCPulses.csv" , row.names = FALSE)
+write.csv(LTCPulses, ltcpulses_path, row.names = FALSE)
 
 # just the pulses which exceed the long-term chronic guideline, but not the acute
 LTCPulses_unique <- anti_join(LTCPulses, STAPulses, by = c("PeakDate", "PeakValue"))
@@ -238,12 +347,15 @@ gg <- gg + geom_hline(aes(yintercept = 150 / 0.3117, linetype = "Long Term Chron
 gg <- gg + scale_linetype_manual(values = c("Long Term Chronic (150 mg/L)" = "dashed", "Short Term Acute (600 mg/L)" = "solid"))
 gg <- gg + scale_colour_manual(values = c("#0E7C7B","#F76C5E"))
 gg <- gg + labs(linetype = "BC Water Quality Guidelines\nfor Chloride",
-                colour = "Monitoring Location", 
+                colour = "Monitoring Location",
                 x = "Date")
-gg <- gg + theme(text = element_text(size = 15))
-gg <- gg + theme_bw()
-gg 
-ggsave(path = plot.file.path, paste("WaggSurfaceWaterChloride2022-25.png"), plot = gg, width = 10)
+gg <- gg + build_theme(base_size = 15)
+# Renders to the plot viewer in interactive mode; skipped in headless mode since ggsave() writes the image to disk.
+if (interactive()) print(gg)
+# height matches the RStudio Plots pane default (5.94 in / 1781 px at 300 dpi).
+# Without an explicit height, ggsave() inherits the current device height:
+# headless uses the pdf() device default (7 in), RStudio uses the pane size — producing different outputs.
+ggsave(filename = chloride_summary_path, plot = gg, width = 10, height = 5.94, dpi = default_ggsave_dpi)
 
 ## 5.2 Highlighting pulse events ----
 gg <- ggplot(data = Wagg %>%
@@ -260,13 +372,13 @@ gg <- gg + scale_linetype_manual(values = c("Long Term Chronic (150 mg/L)" = "da
 gg <- gg + scale_colour_manual(values = c("#0E7C7B","#F76C5E"))
 gg <- gg + scale_fill_manual(values = c("Pulses above the chronic guideline" = "orange","Pulses above the acute guideline" = "red"))
 gg <- gg + labs(linetype = "BC Water Quality Guidelines\nfor Chloride",
-                colour = "Monitoring Location", 
+                colour = "Monitoring Location",
                 fill = "Pulse Type",
                 x = "Date")
-gg <- gg + theme(text = element_text(size = 15))
-gg <- gg + theme_bw()
-gg 
-ggsave(path = plot.file.path, paste("WaggSurfaceWaterChloride2021-25CircledPulses.png"), plot = gg, width = 10)
+gg <- gg + build_theme(base_size = 15)
+# Renders to the plot viewer in interactive mode; skipped in headless mode since ggsave() writes the image to disk.
+if (interactive()) print(gg)
+ggsave(filename = chloride_pulses_path, plot = gg, width = 10, height = 5.94, dpi = default_ggsave_dpi)
 
 # 6 KEY VALUES ----------------------------------------------------------------
 ## 6.1 Total number of unique pulses ---
@@ -297,13 +409,14 @@ PulsesTableMonths <- PulsesTable %>%
 gg <- ggplot(data = PulsesTableMonths, aes(x = month))
 gg <- gg + geom_bar(aes(fill = PulseType), position = position_dodge(preserve = "single"))
 gg <- gg + scale_fill_manual(values = c("red","orange"))
-gg <- gg + theme_bw()
+gg <- gg + build_theme(base_size = 15)
 gg <- gg + labs(x = "Month",
                 y = "Pulse Count",
                 fill = "Pulse Type")
 gg <- gg + facet_wrap(~MonitoringLocationID, ncol = 1, scales = "free_y")
-gg
-ggsave(path = plot.file.path, paste("WaggPulseTypes.png"), plot = gg, width = 12)
+# Renders to the plot viewer in interactive mode; skipped in headless mode since ggsave() writes the image to disk.
+if (interactive()) print(gg)
+ggsave(filename = pulse_types_path, plot = gg, width = 12, height = 5.94, dpi = default_ggsave_dpi)
 
 ## 6.3 Summary table ----
 ### WAGG01
@@ -361,7 +474,7 @@ PulsesTablegt <- PulsesTable %>%
     row.striping.include_table_body = TRUE,
     row.striping.background_color = "#f9f9f9"
   )
-gtsave(data = PulsesTablegt, filename = "03 Outputs/WAGG01PulseSummaryTable.png", vwidth = 2000)
+save_gt_png(PulsesTablegt, wagg01_table_path, width = 2000)
 
 ### WAGG03
 PulsesTablegt <- PulsesTable %>%
@@ -418,10 +531,10 @@ PulsesTablegt <- PulsesTable %>%
     row.striping.include_table_body = TRUE,
     row.striping.background_color = "#f9f9f9"
   )
-gtsave(data = PulsesTablegt, filename = "03 Outputs/WAGG03PulseSummaryTable.png", vwidth = 2000)
+save_gt_png(PulsesTablegt, wagg03_table_path, width = 2000)
 
 # 7 EXCEEDANCE OF LTC WQG BOOTSTRAPPING ---------------------------------------
-Wagg <- read.csv("02 Data/Wagg.csv")
+Wagg <- read.csv(wagg_path)
 
 monthly_coverage <- Wagg %>%
   filter(!is.na(Cl_mgL)) %>%
@@ -499,7 +612,7 @@ bootstrap_sampling_monthly <- function(data, n_iterations, guideline, n_samples)
 }
 
 # Initialize .csv file 
-write.csv(combined_results, "combined_results.csv", row.names = FALSE)
+write.csv(combined_results, combined_path, row.names = FALSE)
 
 # Run in batches
 for (i in seq(1, total_iterations, by = batch_size)) {
@@ -529,11 +642,11 @@ for (i in seq(1, total_iterations, by = batch_size)) {
   
   
   # Write batch results to the .csv file
-  write.table(batch_results, "combined_results.csv", append = TRUE, sep = ",",
+  write.table(batch_results, combined_path, append = TRUE, sep = ",",
               row.names = FALSE, col.names = FALSE)  # Avoid writing headers again
 }
 
-combined_results <- read.csv("combined_results.csv")
+combined_results <- read.csv(combined_path)
 
 # Aggregate results across batches
 final_results <- combined_results %>%
@@ -570,11 +683,10 @@ gg <- gg + geom_hline(aes(yintercept = 150 / 0.3117, linetype = "Long Term Chron
 gg <- gg + scale_linetype_manual(values = c("Long Term Chronic (150 mg/L)" = "dashed", "Short Term Acute (600 mg/L)" = "solid"))
 gg <- gg + scale_colour_manual(values = c("#0E7C7B","#F76C5E"))
 gg <- gg + labs(linetype = "BC Water Quality Guidelines\nfor Chloride",
-                colour = "Monitoring Location", 
+                colour = "Monitoring Location",
                 x = "Date",
                 alpha = "Monthly Odds of Capturing an \nExceedance of BC's\nLong-Term Chronic \nGuideline for Chloride (%)")
-gg <- gg + theme(text = element_text(size = 15))
-gg <- gg + theme_bw()
+gg <- gg + build_theme(base_size = 15)
 gg <- gg + geom_rect(
   data = shading,
   inherit.aes = FALSE,
@@ -584,7 +696,8 @@ gg <- gg + scale_alpha_continuous(range = c(0, 0.4),
                                   breaks = c(0, 10, 20,30,40, 50))
 gg <- gg + facet_wrap(~MonitoringLocationID, ncol = 1, scales = "free_y")
 gg <- gg + coord_cartesian(ylim = c(0,2000))
-gg 
-ggsave(path = plot.file.path, paste("OddsofLTCExceedbyMonthTraceWagg.png"), plot = gg, width = 10)
+# Renders to the plot viewer in interactive mode; skipped in headless mode since ggsave() writes the image to disk.
+if (interactive()) print(gg)
+ggsave(filename = ltc_exceedance_path, plot = gg, width = 10, height = 5.94, dpi = default_ggsave_dpi)
 
-
+message("Analysis complete.")
