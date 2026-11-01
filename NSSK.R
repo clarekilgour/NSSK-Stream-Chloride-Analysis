@@ -163,9 +163,15 @@ Data2 <- Data %>%
            .keep_all = TRUE) # the number of observations should be equal to the total obs. in the og data set, minus the dupes
 # 16147708 obs. - 30261 obs. = 16117447 is CORRECT
 
-DataWide <- Data2 %>% 
-  group_by(MonitoringLocationID,ActivityStartDate,ActivityStartTime) %>% 
-  pivot_wider(names_from = CharacteristicName, values_from = ResultValue) 
+# consistent measurement/CharacteristicName order in the cosmo dataset is not guaranteed for each timestamp.
+# enforce an order on CharacteristicName so wagg.csv has consistent column ordering across many runs as 
+# the cosmo dataset updates.
+# names_sort applies the ordering.
+DataWide <- Data2 %>%
+  mutate(CharacteristicName = factor(CharacteristicName,
+    levels = c("Temperature, water", "Water level (probe)", "Conductivity", "Specific conductance"))) %>%
+  group_by(MonitoringLocationID,ActivityStartDate,ActivityStartTime) %>%
+  pivot_wider(names_from = CharacteristicName, values_from = ResultValue, names_sort = TRUE)
 
 DataWide$MonitoringLocationID <- as.factor(DataWide$MonitoringLocationID)
 levels(DataWide$MonitoringLocationID) # checking all locations present
