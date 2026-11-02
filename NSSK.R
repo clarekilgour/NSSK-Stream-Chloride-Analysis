@@ -110,6 +110,9 @@ for (d in c(data_dir, plot_dir)) {
 # Full path for the filtered Wagg dataset (monitoring locations WAGG01 and WAGG03, with non‑missing specific conductance).
 wagg_path <- file.path(data_dir, "Wagg.csv")
 
+# Fixed column order for the pivoted CharacteristicName measurements in Wagg.csv
+characteristic_name_levels <- c("Temperature, water", "Water level (probe)", "Conductivity", "Specific conductance")
+
 # Full path for short‑term acute pulse CSV
 stapulses_path <- file.path(data_dir, "WaggSTAPulses.csv")
 
@@ -171,8 +174,7 @@ Data2 <- Data %>%
 #
 # names_sort applies the ordering.
 DataWide <- Data2 %>%
-  mutate(CharacteristicName = factor(CharacteristicName,
-    levels = c("Temperature, water", "Water level (probe)", "Conductivity", "Specific conductance"))) %>%
+  mutate(CharacteristicName = factor(CharacteristicName, levels = characteristic_name_levels)) %>%
   group_by(MonitoringLocationID,ActivityStartDate,ActivityStartTime) %>%
   pivot_wider(names_from = CharacteristicName, values_from = ResultValue, names_sort = TRUE)
 
